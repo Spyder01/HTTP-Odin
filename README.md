@@ -98,8 +98,9 @@ response.status = status_503_ServiceUnavailable("Maintenance Mode")  // HTTP 503
 - `write_response(response: ^Response) -> Error`: Writes the HTTP response back to the client.
 
 ## Imporvements
-- Add support for conccurrent requests (!!Important)
+- Add support for conccurrent requests
 - Add reactive pub-sub based error-handling, interrupts, and other events.
+- Add http-client implementation.
 - Performance optimization.
 
 ## Contributing
