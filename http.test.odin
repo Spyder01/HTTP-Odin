@@ -3,6 +3,8 @@ package http
 import "core:net"
 import "core:fmt"
 import "core:testing"
+import "core:strconv"
+import "./pkg/parsers"
 
 // @(test)
 main :: proc() {
@@ -11,11 +13,23 @@ main :: proc() {
     err := listen_http(net.Endpoint{
         net.IP4_Address{127,0,0,1},
         6789,
-    }, proc(request: ^Request, response: ^Response) {
-        fmt.println("Listeting to the server")
-        write_response(response)
-    })
+    }, proc(request: ^Request, response: ^Response, connection_number: int) {
+        fmt.println("Listeting to the connection", connection_number)
+        defer write_response(response)
 
-    fmt.println("ERROROROROROROROROR", err)
-    // assert(err == nil)
+        if request.endpoint == "/api/hello" {
+        response.body = "Hello, world"
+        response.headers.ContentType = ContentType{
+            ContentTypeMain.Text,
+            "html"
+        }
+            response.headers.AcceptEncoding = []Encoding{Encoding.Identity}
+            return
+        }
+
+        response.status = status_404_NotFound()
+        
+    }, proc(){
+        fmt.println("Server started..")
+    })
 }

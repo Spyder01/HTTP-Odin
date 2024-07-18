@@ -16,10 +16,20 @@ Response :: struct {
 
 @(private = "file")
 transpiler_status :: proc(response: ^Response) -> string {
+	buffer: []byte = []byte{0, 0, 0}
 	status := response.status
-	return strings.concatenate(
-		[]string{strconv.itoa([]byte{}, status.code), " ", status.label, " (", status.label, ")"},
+	str := strings.concatenate(
+		[]string {
+			strconv.itoa(buffer, status.code),
+			" ",
+			status.label,
+			" (",
+			status.reason_phrase,
+			")",
+		},
 	)
+
+	return str
 }
 
 @(private)
@@ -37,9 +47,19 @@ transpile_protocol :: proc(response: ^Response) -> string {
 
 @(private = "file")
 transpile_body :: proc(resposne: ^Response) -> string {
-	body := resposne.body
-	switch resposne.headers.ContentEncoding {
+	body := encode_content(resposne)
+
+	resposne.headers.ContentLength = len(body)
+	return body
+}
+
+@(private = "file")
+encode_content :: proc(response: ^Response) -> string {
+	body := response.body
+
+	switch response.headers.ContentEncoding {
 	case .Any:
+		return body
 	case .Identity:
 		return body
 
@@ -60,7 +80,9 @@ transpile_body :: proc(resposne: ^Response) -> string {
 }
 
 transpile_response :: proc(response: ^Response) -> string {
-	return strings.concatenate(
+
+	body := transpile_body(response)
+	data := strings.concatenate(
 		[]string {
 			transpile_protocol(response),
 			" ",
@@ -68,7 +90,9 @@ transpile_response :: proc(response: ^Response) -> string {
 			SEPERATOR,
 			transpile_header(response),
 			SEPERATOR,
-			transpile_body(response),
+			body,
 		},
 	)
+
+	return data
 }

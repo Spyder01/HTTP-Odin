@@ -2,8 +2,6 @@ package core
 
 import "core:net"
 import "core:strings"
-import "core:strconv"
-import "core:fmt"
 
 import parsers "../parsers"
 
@@ -27,15 +25,19 @@ ConnectionEvent :: struct {
     error_registry: ^ErrorRegistry,
 }
 
-HandlerFunc :: proc (request: ^parsers.Request, response: ^parsers.Response) 
+HandlerFunc :: proc (request: ^parsers.Request, response: ^parsers.Response, connection_number: int) 
+OnServerStart :: proc()
 
-connect :: proc (endpoint: net.Endpoint, handler: HandlerFunc, connect_event: ^ConnectionEvent = nil)-> Error {
+connect :: proc (endpoint: net.Endpoint, handler: HandlerFunc, onServerStart: OnServerStart = proc(){}, connect_event: ^ConnectionEvent = nil)-> Error {
     socket := net.listen_tcp(endpoint) or_return
     defer net.close(socket)
+
+    onServerStart()
 
     connection_number := 0
     for {
         connection_number += 1
+
         conn, _, err := net.accept_tcp(socket)
 
         if connect_event == nil && err != nil {
@@ -54,7 +56,7 @@ connect :: proc (endpoint: net.Endpoint, handler: HandlerFunc, connect_event: ^C
             return recv_err
         }
 
-        handler_err := handle_connection(conn, handler, string(request[:n]), endpoint)
+        handler_err := handle_connection(conn, handler, string(request[:n]), endpoint, connection_number)
         
         if connect_event == nil && handler_err != nil {
             return handler_err
@@ -65,8 +67,8 @@ connect :: proc (endpoint: net.Endpoint, handler: HandlerFunc, connect_event: ^C
 }
 
 @(private="file")
-handle_connection :: proc(conn: net.TCP_Socket, handler: HandlerFunc, request_data: string, endpoint: net.Endpoint)->Error {
-    // defer net.close(conn)
+handle_connection :: proc(conn: net.TCP_Socket, handler: HandlerFunc, request_data: string, endpoint: net.Endpoint, connection_number: int)->Error {
+    defer net.close(conn)
 
     request, err := parsers.parse_request(request_data)
 
@@ -81,7 +83,7 @@ handle_connection :: proc(conn: net.TCP_Socket, handler: HandlerFunc, request_da
     response := default_response_factory(endpoint)
     response.conn = conn
 
-    handler(&request, &response)
+    handler(&request, &response, connection_number)
     return nil
 }
 
@@ -89,8 +91,6 @@ write_response :: proc(response: ^parsers.Response)->(error: Error = nil) {
 
     if response.headers.ContentLength != 0 {
         response.headers.ContentLength = len(response.body)
-    } else {
-        response.body = response.body[:response.headers.ContentLength]
     }
 
     data := [dynamic]byte{}

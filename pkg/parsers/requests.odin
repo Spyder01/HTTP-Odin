@@ -3,7 +3,6 @@ package parsers
 import "core:strconv"
 import "core:strings"
 import "core:bytes"
-import "core:fmt"
 import compress "../compress"
 
 Request :: struct {

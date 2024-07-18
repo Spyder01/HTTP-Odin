@@ -1,9 +1,9 @@
 package parsers
 
 Status :: struct {
-	label:         string,
-	code:          int,
 	reason_phrase: string,
+	code:          int,
+	label:         string,
 }
 
 // Function to generate HTTP status for 200 OK

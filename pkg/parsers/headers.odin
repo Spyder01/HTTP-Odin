@@ -42,7 +42,7 @@ transpile_header :: proc(response: ^Response) -> string {
 
 	append(
 		&headers,
-		header_factory("Content-Length", strconv.itoa([]byte{}, parsed_headers.ContentLength)),
+		header_factory("Content-Length", strconv.itoa([]byte{1,2,3}, parsed_headers.ContentLength)),
 		SEPERATOR,
 	)
 
@@ -51,13 +51,15 @@ transpile_header :: proc(response: ^Response) -> string {
 	}
 
 	if parsed_headers.Server != "" {
-		append(&headers, header_factory("Server", parsed_headers.Server))
+		append(&headers, header_factory("Server", parsed_headers.Server), SEPERATOR)
 	}
+
+	append(&headers, header_factory("Content-Type", transpile_content_type(parsed_headers.ContentType)), SEPERATOR)
 
 	custom_headers := response.custom_headers
 
 	for key in custom_headers {
-		append(&headers, header_factory(key, custom_headers[key]))
+		append(&headers, header_factory(key, custom_headers[key]), SEPERATOR)
 	}
 
 	return strings.concatenate(headers[:])
@@ -85,4 +87,31 @@ transpile_encoding :: proc(encoding: Encoding) -> string {
 @(private = "file")
 header_factory :: proc(key: string, value: string) -> string {
 	return strings.concatenate([]string{key, ":", value})
+}
+
+@(private = "file")
+transpile_content_type :: proc(content_type: ContentType)->string {
+	return strings.concatenate([]string{transpile_main_content_type(content_type.Type), "/", content_type.SubType})
+}
+
+@(private = "file")
+transpile_main_content_type :: proc(main_type: ContentTypeMain)->string {
+	switch main_type {
+		case .Application:
+			return "application"
+		case .Audio:
+			return "audio"
+		case .Font:
+			return "font"
+		case .Image:
+			return "image"
+		case .Multipart:
+			return "multipart"
+		case .Text:
+			return "text"
+		case .Video:
+			return "video"
+	}
+
+	return "text"
 }
