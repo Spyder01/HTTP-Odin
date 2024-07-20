@@ -10,56 +10,50 @@ Options :: struct {
     host: string
 }
 
-Error :: union {
-    parsers.Error,
-    parsers.ParseError,
-    net.Network_Error,
-}
 
-ErrorRegistry :: struct {
-    latest_error: Error,
-    error_stack: []Error    
-}
 
-ConnectionEvent :: struct {
-    error_registry: ^ErrorRegistry,
-}
-
-HandlerFunc :: proc (request: ^parsers.Request, response: ^parsers.Response, connection_number: int) 
+HandlerFunc :: proc (request: ^parsers.Request, response: ^parsers.Response, event: ^ConnectionEvent) 
 OnServerStart :: proc()
 
-connect :: proc (endpoint: net.Endpoint, handler: HandlerFunc, onServerStart: OnServerStart = proc(){}, connect_event: ^ConnectionEvent = nil)-> Error {
+connect :: proc (endpoint: net.Endpoint, handler: HandlerFunc, event: ^ConnectionEvent = nil)-> Error {
     socket := net.listen_tcp(endpoint) or_return
     defer net.close(socket)
 
-    onServerStart()
+    dispatch_event(event, "start")
+    defer dispatch_event(event, "end")
 
-    connection_number := 0
-    for {
-        connection_number += 1
+    for !event.interrupt {
+        event.connection_number += 1
 
         conn, _, err := net.accept_tcp(socket)
 
-        if connect_event == nil && err != nil {
+        if event == nil && err != nil {
             return err
         }
 
         if err != nil {
-            connect_event.error_registry.latest_error = err
-            // Some error registry stuff
+            register_error(event, err)
         }
 
         request := make([]byte, 1024)
         n, recv_err := net.recv_tcp(conn, request)
 
-        if connect_event == nil && recv_err != nil {
+        if event == nil && recv_err != nil {
             return recv_err
         }
 
-        handler_err := handle_connection(conn, handler, string(request[:n]), endpoint, connection_number)
+        if recv_err != nil {
+            register_error(event, recv_err)
+        }
+
+        handler_err := handle_connection(conn, handler, string(request[:n]), endpoint, event)
         
-        if connect_event == nil && handler_err != nil {
+        if event == nil && handler_err != nil {
             return handler_err
+        }
+
+        if handler_err != nil {
+            register_error(event, recv_err)
         }
     }
 
@@ -67,7 +61,7 @@ connect :: proc (endpoint: net.Endpoint, handler: HandlerFunc, onServerStart: On
 }
 
 @(private="file")
-handle_connection :: proc(conn: net.TCP_Socket, handler: HandlerFunc, request_data: string, endpoint: net.Endpoint, connection_number: int)->Error {
+handle_connection :: proc(conn: net.TCP_Socket, handler: HandlerFunc, request_data: string, endpoint: net.Endpoint, event: ^ConnectionEvent = nil)->Error {
     defer net.close(conn)
 
     request, err := parsers.parse_request(request_data)
@@ -83,7 +77,7 @@ handle_connection :: proc(conn: net.TCP_Socket, handler: HandlerFunc, request_da
     response := default_response_factory(endpoint)
     response.conn = conn
 
-    handler(&request, &response, connection_number)
+    handler(&request, &response, event)
     return nil
 }
 

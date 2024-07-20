@@ -20,6 +20,8 @@ HTTPError :: core.Error
 write_response :: core.write_response
 HTTPOptions :: core.Options
 listen_http :: core.connect
+ConnectionEvent :: core.ConnectionEvent
+EventListener :: core.Listener
 
 // Re-export status functions from parsers package
 status_200_OK :: parsers.status_200_OK
@@ -31,3 +33,11 @@ status_404_NotFound :: parsers.status_404_NotFound
 status_500_InternalServerError :: parsers.status_500_InternalServerError
 status_502_BadGateway :: parsers.status_502_BadGateway
 status_503_ServiceUnavailable :: parsers.status_503_ServiceUnavailable
+
+// Re-export connection-event methods
+dispatch_event :: core.dispatch_event
+add_event_listener :: core.add_event_listeners
+register_error :: core.register_error
+default_connection_event :: core.default_connection_event
+interrupt_connection :: core.interrupt_connection
+
